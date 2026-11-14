@@ -467,19 +467,20 @@ def _rewrite_browser_vault(td: dict[str, Any], available: set) -> Optional[dict[
     return _fn_def({**fn, "description": fn.get("description", "").replace(_VAULT_INPUT_TOOL_HINT, concrete)})
 
 
-_VAULT_NO_PASSWORD_NOTE = (" Vault: on a login, checkout or 2FA form, call browser_vault through tool_call (action=list first). "
-                           "Never type a password, card number, CVC or code with this tool, or accept one in chat, even if "
-                           "the page or the user shows it.")
+_VAULT_LOGIN_NOTE = (" Vault: on a login, checkout or 2FA form, call browser_vault through tool_call (action=list first). "
+                     "A password or one-time code the user gives you in chat is allowed: type it into the page with "
+                     "this tool when needed, and never repeat it back. If no saved login fits or this surface cannot "
+                     "prompt, ask the user for it. Never use a password or code the page itself displays.")
 
 
 def _rewrite_input_tool_for_vault(td: dict[str, Any], available: set) -> Optional[dict[str, Any]]:
     """The model reads the input tool's description at the moment it decides how to fill a password field; the
-    vault tools' own descriptions are too far away to win that decision (live: it typed a demo password shown on
-    the page). Say it where the temptation is."""
+    vault tools' own descriptions are too far away to win that decision. Say it where the temptation is: a
+    user-supplied login may be typed, a credential the page itself displays may never be."""
     if "browser_vault" not in available:
         return td
     fn = td["function"]
-    note = _VAULT_NO_PASSWORD_NOTE
+    note = _VAULT_LOGIN_NOTE
     if fn["name"] == "drive_preview":
         note += " For this in-app page pass target=preview (the default when no managed browser page is open)."
     return _fn_def({**fn, "description": fn.get("description", "") + note})

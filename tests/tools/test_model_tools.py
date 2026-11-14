@@ -537,6 +537,25 @@ class TestBrowserRetrievalHints:
         assert "web_extract" not in rendered
 
 
+def test_vault_note_allows_user_supplied_login_credentials():
+    """A user may give the agent their password or one-time code in chat and have it typed
+    into the page; the guard stays against credentials the page itself displays."""
+    from model_tools import _apply_dynamic_schemas
+    from tools.browser_use_cli import BROWSER_EXEC_SCHEMA
+    from tools.browser_vault_tool import BROWSER_VAULT_SCHEMA
+
+    defs = [
+        {"type": "function", "function": BROWSER_EXEC_SCHEMA},
+        {"type": "function", "function": BROWSER_VAULT_SCHEMA},
+        {"type": "function", "function": {"name": "terminal", "description": "terminal"}},
+    ]
+    rendered = next(d for d in _apply_dynamic_schemas(defs)
+                    if d["function"]["name"] == "browser_exec")["function"]["description"]
+    assert "password or one-time code the user gives you in chat is allowed" in rendered
+    assert "Never type a password" not in rendered
+    assert "page itself displays" in rendered
+
+
 @pytest.mark.parametrize("native", [False, True])
 def test_browser_exec_points_at_vision_analyze_only_when_the_session_has_it(monkeypatch, native):
     """An auxiliary vision route exists (check_vision_requirements is True) but the session may not
