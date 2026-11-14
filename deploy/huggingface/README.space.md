@@ -13,13 +13,13 @@ This is an isolated Docker deployment for testing Hermes. It does not replace th
 
 ## Build inputs
 
-Copy `Dockerfile.hf` to the Space root as `Dockerfile`, copy `Dockerfile.hf.dockerignore` as `Dockerfile.dockerignore`, and retain the `deploy/huggingface/` helpers. Use this file as the root `README.md`.
+The Space repository is the source of truth for these deployment files (`Dockerfile`, `Dockerfile.dockerignore`, `deploy/huggingface/`, and this README). The application source is fetched at image build time at the pin below; do not replace these files with an older helper bundle without re-checking its pin and runtime gates.
 
-The reviewed application source pin is **`46b468479ca93a01ffceaf10ee1c635498fdacdf`**, the frontier snapshot of the filewrap/hermes-agent fork (canary v0.22.5+canary.20261031T064409Z, Telegram rich UI, MTProto completeness, HF deployment pointed at this repo, Dependabot GitHub Actions bumps); deployment helpers are copied independently from one clean reviewed private-fork checkout. Record that checkout's `git rev-parse HEAD` as the helper-bundle revision. Do not self-pin the commit being authored or substitute a moving `main` ref. Updating this source pin does not build or deploy an image.
+The reviewed application source pin is **`36c00c431d17ddb8a848c6a6036db73f02d09818`**, the snapshot of `Mega-333-Evolutions/hermes` `main` at fork commit `b6c03ec028` (v0.23.1-2). Deployment helpers are maintained in this Space repository. Do not self-pin the commit being authored or substitute a moving `main` ref. Updating this source pin does not build or deploy an image by itself.
 
 Transcript auditing is strictly private-DM-only. Group, supergroup, channel, and forum messages are never enqueued, forwarded, or used to create transcript topics, regardless of sender/owner status, allowlists, triggers, or topic/thread; pending group-scope transcript rows must be dropped. Authorized private-DM transcripts remain eligible for the owner-configured private forum. Trusted startup/deployment notices in General and sanitized operational events in each profile's `Operations · Profile <canonical hash>` topic remain supported; these are not group transcripts. Multiple selected profiles may use one forum only through the live served registry and pinned profile identity, with each profile's durable outbox isolated and mismatches failing closed. Delivery is bounded best-effort, not exactly-once, and honors a shared forum FloodWait cooldown. The owner remains unrestricted and local tools are retained; existing cgroup/quota/network limitations are unchanged. Namespace tooling and the HF host's kernel permissions have not been validated here: tenant execution fails closed without a successful local probe and never falls back to host shell. This source-only change does not deploy a Space or restart a gateway/service. After a separately approved restart, run `/logs setup <negative_numeric_forum_id>` followed by `/logs status` in the owner's private chat for each selected routed profile; live verification is not complete here.
 
-The image fetches this fork from `https://github.com/filewrap/hermes.git` at the reviewed `HERMES_REF` commit. Change the Docker build arguments only after review (ordinary runtime variables do not override Docker ARG defaults). The ref must be a full lowercase 40-character commit SHA.
+The image fetches this fork from `https://github.com/Mega-333-Evolutions/hermes.git` at the reviewed `HERMES_REF` commit. Change the Docker build arguments only after review (ordinary runtime variables do not override Docker ARG defaults). The ref must be a full lowercase 40-character commit SHA.
 
 For private GitHub source, add a Space secret named `GITHUB_TOKEN` with read-only Contents permission for that repository. BuildKit mounts it for askpass authentication; it is not stored in the source URL or Git configuration. Space secrets can also be present at runtime, so keep this token narrowly scoped.
 
@@ -63,6 +63,7 @@ This selects only the [OpenRouter free router](https://openrouter.ai/docs/guides
 | --- | --- |
 | `HF_STATE_MODE` | `ephemeral` to enable the gateway with explicitly disposable local state. |
 | `HF_ALLOW_EPHEMERAL` | `1`; acknowledges possible state loss, even when backups are configured. |
+| `HF_STRICT_FREE_ONLY` | Optional; set `1` to force the OpenRouter free-only policy. Unset/`0` disables it and allows any authenticated provider or model, including `/model` switches. |
 | `HERMES_HOME` | `/home/Hermes/.hermes` (the default live profile location; keep it off `/data`). |
 | `OWNER_TELEGRAM_ID` | Your canonical positive decimal Telegram user ID; set as a Variable or Secret for owner-only controls. |
 | `TELEGRAM_ALLOWED_USERS` | Recommended: comma-separated canonical positive decimal Telegram IDs allowed to use the bot. |
@@ -86,7 +87,7 @@ The HF supervisor passes an internal, in-memory runtime environment payload to t
 
 The internal payload is not logged, written to config, or included in snapshots. Other and routed profiles do not inherit the launch owner's identity or allowlist. Existing tenant access-state and ban persistence is unchanged; numeric Telegram identities may occur in tenant state needed for access or history, but bridge bootstrap settings are not persisted. Startup does not reset durable bans or revocations; the owner can admit a numeric ID with `/allow`. `MULTIUSER_ENABLED` is retired. Validation should assert no bridge bootstrap settings reach disk (including `.env`), logs, config, or snapshots; conflicts fail before launch without merging grants; and A-B-A isolation (launch A, run B, return to A) prevents profile inheritance. Also exercise absent owner, owner-only and owner-plus-allowlist payloads, canonical-ID checks, and unchanged `.env` bytes and permissions. This describes the startup contract; it does not claim a live Space was changed or tested.
 
-For custom non-secret settings, `HF_CONFIG_FILE` optionally selects an existing absolute mounted seed-config path. It is a path **inside the container**, not a file created by setting the variable. Existing/restored configuration is never overwritten; missing configuration is generated only when no seed file was requested. An explicitly invalid seed path or an existing empty config still fails rather than silently discarding your choice. Existing/restored configs that select another model/provider, enable fallback chains, or weaken the free-only policy are preserved but **block gateway startup**; update their routing settings explicitly rather than expecting silent migration. Consult `README_HF.md` for a complete custom-config example, dataset mounting instructions, and the Telethon/MTProto requirements.
+For custom non-secret settings, `HF_CONFIG_FILE` optionally selects an existing absolute mounted seed-config path. It is a path **inside the container**, not a file created by setting the variable. Existing/restored configuration is never overwritten; missing configuration is generated only when no seed file was requested. An explicitly invalid seed path or an existing empty config still fails rather than silently discarding your choice. When `HF_STRICT_FREE_ONLY=1`, existing/restored configs that select another model/provider, enable fallback chains, or weaken the free-only policy are preserved but **block gateway startup**; update their routing settings explicitly rather than expecting silent migration. With strict free-only disabled (the default), the supervisor preserves the config and allows any authenticated provider. Consult `README_HF.md` for a complete custom-config example, dataset mounting instructions, and the Telethon/MTProto requirements.
 
 Optional `HF_RESTORE_ARCHIVE` selects a trusted immutable `.tar.gz` created by the snapshot helper. It takes precedence over automatic bucket restore. Restore happens only into absent/empty local state before the gateway starts. Nonempty destinations are never merged or overwritten.
 
@@ -98,7 +99,7 @@ The full archive deliberately contains plaintext secrets and transcripts. Keep t
 
 ## Required runtime safety gates
 
-The launcher forces `HERMES_STRICT_FREE_ONLY=1`; a Space variable set to `0` cannot turn it off. The pinned application source must contain the versioned runtime guard or startup fails. Config checks are not the only protection: built-in main and auxiliary request paths must reject alternate providers/models/transports and prevent request-body routing overrides. The policy admits only `openrouter/free` at `https://openrouter.ai/api/v1`, sets all supported price caps to zero, and disables fallback. Unavailable free capacity must produce a failure, never a paid retry. Presets, server-side tools, plugins, unknown extra-body controls, and separately processed file/audio inputs are rejected; local function tools and text/image inputs remain eligible. Restored dotenv files and secret-source refreshes cannot disable a launcher-enforced strict flag. This is an application routing policy, not an OS sandbox against arbitrary code or a terminal command using credentials.
+The launcher defaults strict free-only **off**. Set `HF_STRICT_FREE_ONLY=1` to force `HERMES_STRICT_FREE_ONLY=1`; while enabled, a Space variable set to `0` cannot turn it off. When enabled, the pinned application source must contain the versioned runtime guard or startup fails. Config checks are not the only protection: built-in main and auxiliary request paths must reject alternate providers/models/transports and prevent request-body routing overrides. The policy admits only `openrouter/free` at `https://openrouter.ai/api/v1`, sets all supported price caps to zero, and disables fallback. Unavailable free capacity must produce a failure, never a paid retry. Presets, server-side tools, plugins, unknown extra-body controls, and separately processed file/audio inputs are rejected; local function tools and text/image inputs remain eligible. Restored dotenv files and secret-source refreshes cannot disable a launcher-enforced strict flag. This is an application routing policy, not an OS sandbox against arbitrary code or a terminal command using credentials.
 
 The image builds SQLite 3.53.4 and forces `uv` to use `/usr/bin/python3` without downloading a Python with bundled SQLite. Both the **actual `.venv/bin/python` at image build** and the supervisor interpreter at every gateway startup must pass SQLite >=3.51.3 and an FTS5 trigram smoke test. SQLite 3.50.4 now blocks startup with a clear message rather than relying on DELETE-journal fallback. The launcher will not start the gateway if a runtime safety gate fails.
 
@@ -108,23 +109,13 @@ The pinned source preserves the five-way Telethon/MTProto downloader, 512-KiB ch
 
 ## Sync and rebuild (operator action)
 
-In a local clone of this fork checked out at the reviewed deployment commit, set `SOURCE_REPO` and `SPACE_REPO` to the two absolute clone paths. These commands change only the Space repository; run them only when ready to rebuild:
+This Space repository is the source of truth for the deployment files. To move to a new application snapshot:
 
-```sh
-SOURCE_REPO=/absolute/path/to/hermes-agent
-SPACE_REPO=/absolute/path/to/space-repo
-mkdir -p "$SPACE_REPO/deploy/huggingface"
-cp "$SOURCE_REPO/Dockerfile.hf" "$SPACE_REPO/Dockerfile"
-cp "$SOURCE_REPO/Dockerfile.hf.dockerignore" "$SPACE_REPO/Dockerfile.dockerignore"
-cp "$SOURCE_REPO"/deploy/huggingface/*.py "$SPACE_REPO/deploy/huggingface/"
-cp "$SOURCE_REPO/deploy/huggingface/start.sh" "$SPACE_REPO/deploy/huggingface/"
-cp "$SOURCE_REPO/deploy/huggingface/README.space.md" "$SPACE_REPO/deploy/huggingface/"
-cp "$SOURCE_REPO/deploy/huggingface/README.space.md" "$SPACE_REPO/README.md"
-git -C "$SPACE_REPO" add Dockerfile Dockerfile.dockerignore README.md deploy/huggingface
-git -C "$SPACE_REPO" diff --cached --stat
-git -C "$SPACE_REPO" commit -m "Sync reviewed uvloop runtime and HF helper checks"
-git -C "$SPACE_REPO" push
-```
+1. Verify the new source commit exists at `HERMES_REPO_URL` and record its full 40-character SHA.
+2. Update `ARG HERMES_REF` in `Dockerfile` and the pin in this README.
+3. Update the `HERMES_REF` Space Variable, or remove it and rely on the Dockerfile default.
+4. Review upstream helper changes and apply only the relevant fixes by hand. Do not bulk-copy `Dockerfile.hf` or `deploy/huggingface/*` over this repository: it carries deployment-specific changes (strict-free-only opt-in and the runtime socket exclusion in `full_state.py`).
+5. Commit and push; the Space rebuilds from the pushed commit.
 
 Keep `HF_STATE_MODE=ephemeral`, `HF_ALLOW_EPHEMERAL=1`, and credentials in Space secrets. Leave `HF_CONFIG_FILE` and `HF_RESTORE_ARCHIVE` unset for a fresh bootstrap. Do not set a stale custom `HERMES_REF` build override. A push triggers a new build; if needed use the Space's **Factory reboot** action to rebuild without cached layers. Container-local state can be lost: export anything needed before rebuilding. Never expose snapshots containing credentials in the repository.
 

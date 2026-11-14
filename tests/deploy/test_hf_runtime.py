@@ -15,7 +15,7 @@ HELPERS = ROOT / "deploy/huggingface"
 SPEC = importlib.util.spec_from_file_location("hf_check_runtime", HELPERS / "check_runtime.py")
 runtime = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(runtime)
-SOURCE_SHA = "a0923910e33f78f3487311a202c8803934c879b7"
+SOURCE_SHA = "36c00c431d17ddb8a848c6a6036db73f02d09818"
 
 
 def test_real_gateway_loop_uses_pinned_uvloop_without_replacing_policy():
@@ -77,7 +77,7 @@ def source_file(path):
 def test_image_and_docs_pin_reviewed_private_source_not_moving_main():
     dockerfile = (ROOT / "Dockerfile.hf").read_text()
     assert re.search(r"^ARG HERMES_REF=([0-9a-f]{40})$", dockerfile, re.MULTILINE).group(1) == SOURCE_SHA
-    assert "ARG HERMES_REPO_URL=https://github.com/filewrap/hermes-agent.git" in dockerfile
+    assert "ARG HERMES_REPO_URL=https://github.com/Mega-333-Evolutions/hermes.git" in dockerfile
     assert 'git fetch --depth=1 --no-tags origin "$HERMES_REF"' in dockerfile
     assert '[ "$(git rev-parse HEAD)" = "$HERMES_REF" ]' in dockerfile
     assert "--frozen --no-dev" in dockerfile
@@ -89,8 +89,9 @@ def test_image_and_docs_pin_reviewed_private_source_not_moving_main():
 
 def test_pinned_source_lock_and_runtime_retain_reviewed_uvloop_and_downloader():
     project = tomllib.loads(source_file("pyproject.toml"))
-    assert any(dep.startswith("uvloop==0.22.1;") and "linux" in dep
-               for dep in project["project"]["dependencies"])
+    extras = project["project"]["optional-dependencies"]
+    assert any(dep.startswith("uvloop>=0.15.1,<0.24;") for dep in extras["uvloop"])
+    assert "hermes-agent[uvloop]" in extras["all"]
     lock = tomllib.loads(source_file("uv.lock"))
     assert [pkg["version"] for pkg in lock["package"] if pkg["name"] == "uvloop"] == ["0.22.1"]
     # Exact source content, not a mutable main ref or an unrelated local checkout.

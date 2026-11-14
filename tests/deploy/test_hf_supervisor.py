@@ -384,6 +384,7 @@ def test_image_uses_system_python_and_checks_real_venv():
 
 
 def test_gateway_child_cannot_disable_free_only_env(tmp_path, monkeypatch):
+    monkeypatch.setenv("HF_STRICT_FREE_ONLY", "1")
     monkeypatch.setenv("HERMES_STRICT_FREE_ONLY", "0")
     marker = tmp_path / "policy"
     code = f"import os,time; from pathlib import Path; Path({str(marker)!r}).write_text(os.environ.get('HERMES_STRICT_FREE_ONLY', 'missing')); time.sleep(60)"
@@ -394,7 +395,8 @@ def test_gateway_child_cannot_disable_free_only_env(tmp_path, monkeypatch):
         assert proc.wait(timeout=15) == 0
 
 
-def test_unsafe_preserved_config_prevents_gateway_launch(tmp_path):
+def test_unsafe_preserved_config_prevents_gateway_launch(tmp_path, monkeypatch):
+    monkeypatch.setenv("HF_STRICT_FREE_ONLY", "1")
     marker = tmp_path / "must-not-start"
     code = f"from pathlib import Path; Path({str(marker)!r}).touch()"
     with service(tmp_path, code, config="model: paid/model\n") as (proc, _port):
@@ -402,6 +404,23 @@ def test_unsafe_preserved_config_prevents_gateway_launch(tmp_path):
         assert not marker.exists()
         assert (tmp_path / "home/config.yaml").read_text() == "model: paid/model\n"
         assert "HF free-only policy" in proc.stderr.read()
+
+
+def test_free_only_is_opt_in_by_default(tmp_path, monkeypatch):
+    monkeypatch.delenv("HF_STRICT_FREE_ONLY", raising=False)
+    monkeypatch.setenv("HERMES_STRICT_FREE_ONLY", "0")
+    marker = tmp_path / "policy"
+    code = (
+        "import os,time; from pathlib import Path; "
+        f"Path({str(marker)!r}).write_text(os.environ.get('HERMES_STRICT_FREE_ONLY', 'missing')); "
+        "time.sleep(60)"
+    )
+    with service(tmp_path, code, config="model: paid/model\n") as (proc, port):
+        wait_for(lambda: marker.exists() and get(port, "/readyz")[0] == 200)
+        assert marker.read_text() == "0"
+        assert (tmp_path / "home/config.yaml").read_text() == "model: paid/model\n"
+        proc.terminate()
+        assert proc.wait(timeout=15) == 0
 
 
 def test_unsafe_actual_interpreter_blocks_before_state_setup(tmp_path):
@@ -456,7 +475,7 @@ with sqlite3.connect(Path(os.environ['HERMES_HOME']) / 'state.db') as db:
     assert db.execute('SELECT content FROM messages').fetchone()[0] == 'Continue our chat'
 time.sleep(60)
 """
-    artifacts = bucket / "hermes-state"
+    artifacts = store.directory
     with service(tmp_path, child_code, bucket=True) as (proc, port):
         wait_for(lambda: get(port, "/readyz")[0] == 200)
         _code, body = get(port, "/readyz")
@@ -546,6 +565,7 @@ def test_hf_multiuser_runtime_is_narrow_nonpersistent_and_fail_closed(tmp_path, 
 
 @pytest.mark.parametrize("conflict", [False, True])
 def test_hf_space_owner_reaches_real_multiuser_adapter_without_policy_file(tmp_path, monkeypatch, conflict):
+    pytest.importorskip("telethon")
     monkeypatch.setenv("OWNER_TELEGRAM_ID", "100")
     monkeypatch.setenv("TELEGRAM_ALLOWED_USERS", "100,200")
     marker = tmp_path / "multiuser-ready"

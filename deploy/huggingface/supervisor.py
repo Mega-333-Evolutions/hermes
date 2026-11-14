@@ -14,6 +14,7 @@ import sys
 import threading
 import time
 from typing import Callable
+from urllib.parse import urlsplit
 from persistence import SnapshotStore, is_mountpoint
 from full_state import FullStateStore
 
@@ -223,15 +224,25 @@ def main(
                 import sqlite3
                 print(f"HF SQLite verified: {sys.executable} uses {sqlite3.sqlite_version}", flush=True)
                 print(f"HF event loop verified: {loop_info}", flush=True)
-                # Force policy even if a Space variable tried to disable it.
-                os.environ["HERMES_STRICT_FREE_ONLY"] = "1"
+                # Strict free-only is opt-in on this Space (HF_STRICT_FREE_ONLY=1).
+                # Default off so authenticated providers (openai-codex, antigravity via plugin, nvidia, ...) can be used via /model.
+                strict_enabled = (
+                    os.environ.get("HF_STRICT_FREE_ONLY", "").strip() == "1"
+                    or os.environ.get("HERMES_STRICT_FREE_ONLY", "").strip() == "1"
+                )
+                os.environ["HERMES_STRICT_FREE_ONLY"] = "1" if strict_enabled else "0"
                 try:
                     from agent import strict_free_policy
                 except ImportError as exc:
-                    raise RuntimeError("HF startup blocked: pinned source lacks strict free-only guards; sync the reviewed Dockerfile and rebuild") from exc
-                if getattr(strict_free_policy, "POLICY_VERSION", 0) < 1:
-                    raise RuntimeError("HF startup blocked: pinned source lacks the required free-only policy capability")
-                from free_policy import validate_config
+                    if strict_enabled:
+                        raise RuntimeError("HF startup blocked: pinned source lacks strict free-only guards; sync the reviewed Dockerfile and rebuild") from exc
+                    strict_free_policy = None
+                if strict_enabled:
+                    if getattr(strict_free_policy, "POLICY_VERSION", 0) < 1:
+                        raise RuntimeError("HF startup blocked: pinned source lacks the required free-only policy capability")
+                    from free_policy import validate_config
+                else:
+                    validate_config = None
                 from hermes_cli.config import read_user_config_raw
 
                 full_persistence = FullStateStore(state_home)
@@ -266,9 +277,12 @@ def main(
                 persistence.restore_latest()
                 print("HF " + persistence.status_message(), flush=True)
                 saved_config = read_user_config_raw(state_home / "config.yaml")
-                validate_config(saved_config)
-                strict_free_policy.assert_config_safe(saved_config)
-                print("HF strict free-only policy active: openrouter/free; no alternate providers or model fallbacks", flush=True)
+                if strict_enabled:
+                    validate_config(saved_config)
+                    strict_free_policy.assert_config_safe(saved_config)
+                    print("HF strict free-only policy active: openrouter/free; no alternate providers or model fallbacks", flush=True)
+                else:
+                    print("HF strict free-only policy disabled; any authenticated provider allowed (set HF_STRICT_FREE_ONLY=1 to re-enable)", flush=True)
                 if not os.access(state_home, os.W_OK):
                     raise PermissionError("State directory is not writable")
                 if not stop.is_set():
@@ -382,22 +396,31 @@ def main(
 
 class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self) -> None:
+        self._respond(head=False)
+
+    def do_HEAD(self) -> None:
+        self._respond(head=True)
+
+    def _respond(self, head: bool) -> None:
         with lock:
             current, message, proc = status, detail, child
         alive = proc is not None and proc.poll() is None
         if proc is not None and not alive:
             current, message = "failed", "Gateway subprocess exited."
-        if self.path == "/healthz":
+        # HF's App iframe appends cache-busting query strings (e.g.
+        # ?__theme=dark), so match the path component only.
+        path = urlsplit(self.path).path
+        if path == "/healthz":
             code = 503 if current == "failed" else 200
             body = {"status": "failed" if current == "failed" else "alive"}
-        elif self.path == "/readyz":
+        elif path == "/readyz":
             code = 200 if current == "running" and alive else 503
             body = {
                 "status": current,
                 "detail": message,
                 "note": "Process liveness only; messaging, model and database readiness are not tested.",
             }
-        elif self.path in {"/", "/index.html"}:
+        elif path in {"/", "/index.html"}:
             code = 503 if current == "failed" else 200
             body = {
                 "service": "Hermes Agent",
@@ -406,15 +429,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "health": "/healthz",
                 "readiness": "/readyz",
             }
+        elif path == "/favicon.ico":
+            code, body = 204, None
         else:
             code, body = 404, {"error": "not found"}
-        payload = json.dumps(body).encode("utf-8")
+        payload = b"" if body is None else json.dumps(body).encode("utf-8")
         self.send_response(code)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
+        if body is not None:
+            self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(payload)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
-        self.wfile.write(payload)
+        if not head and payload:
+            self.wfile.write(payload)
 
     def log_message(self, _fmt: str, *_args: object) -> None:
         # Do not echo arbitrary request URLs or query-string credentials into logs.

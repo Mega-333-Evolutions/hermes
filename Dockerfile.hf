@@ -59,9 +59,9 @@ COPY --from=node_source /usr/local/lib/node_modules/npm /usr/local/lib/node_modu
 RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
     ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
-ARG HERMES_REPO_URL=https://github.com/filewrap/hermes.git
+ARG HERMES_REPO_URL=https://github.com/Mega-333-Evolutions/hermes.git
 # Application and helper revisions are independent: never self-pin this helper commit.
-ARG HERMES_REF=700e0cdea16df362eaf66e86362de882a03aba0f
+ARG HERMES_REF=36c00c431d17ddb8a848c6a6036db73f02d09818
 USER Hermes
 WORKDIR /home/Hermes
 # Secret file must be readable by UID1000. Never place the token in ARG/ENV/URL.

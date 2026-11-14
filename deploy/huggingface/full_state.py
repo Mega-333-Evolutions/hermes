@@ -29,6 +29,22 @@ RETAIN_SNAPSHOTS = 3
 EXCLUDED_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", "env", ".cache", "cache", "logs", "log", "tmp", "temp"}
 EXCLUDED_SUFFIXES = (".lock", ".tmp", ".temp", ".swp", ".swo", ".log", "~")
 SIDECAR_SUFFIXES = ("-wal", "-shm", "-journal")
+# Machine-local gateway runtime identity: never snapshotted or restored.
+# Mirrors hermes_cli/backup.py _EXCLUDED_NAMES + _IMPORT_SKIP_NAMES, plus the
+# control-socket nodes (gateway/control_socket.py) and loop-tick sockets
+# (gateway/shutdown_watchdog.py). Sockets cannot be zipped; PID/state files
+# name the source machine's processes and must not poison a restore. Matched
+# by basename at any profile depth.
+RUNTIME_EXCLUDED_NAMES = frozenset({
+    ".backup.lock",
+    "gateway.pid",
+    "cron.pid",
+    "gateway.lock",
+    "gateway_state.json",
+    "processes.json",
+    "gateway.sock",
+    "gateway.sock.path",
+})
 
 
 def _sha256_file(path: Path) -> str:
@@ -49,9 +65,13 @@ def _excluded(relative: PurePosixPath, *, is_dir: bool) -> bool:
     if any(part in EXCLUDED_DIRS or part.endswith((".egg-info",)) for part in parts):
         return True
     name = relative.name.lower()
-    if name.endswith(EXCLUDED_SUFFIXES) or name.endswith(SIDECAR_SUFFIXES):
+    if name in RUNTIME_EXCLUDED_NAMES:
         return True
-    if name.startswith(".") and name.endswith((".pid", ".sock")):
+    if name.endswith((".pid", ".sock")):
+        return True
+    if name.startswith("gateway.loop-tick.") and name.endswith(".sock"):
+        return True
+    if name.endswith(EXCLUDED_SUFFIXES) or name.endswith(SIDECAR_SUFFIXES):
         return True
     return False
 
