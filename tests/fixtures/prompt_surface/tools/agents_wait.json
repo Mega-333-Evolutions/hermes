@@ -1,0 +1,27 @@
+{
+  "description": "Wait for subagent runs to settle and collect their results, without polling. Returns settled completions and the still-pending run ids; a run you do not own, or that does not exist, is reported per id instead of failing the call. Use run ids from the delegate_task dispatch response or action='list'.",
+  "name": "agents_wait",
+  "parameters": {
+    "properties": {
+      "awaitResults": {
+        "description": "Join all listed runs until settlement or cancellation, without polling. Mutually exclusive with timeoutSeconds.",
+        "type": "boolean"
+      },
+      "ids": {
+        "description": "Run ids (subagent ids) to wait for, at most 1000.",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "timeoutSeconds": {
+        "description": "Seconds to wait before returning whatever has settled (default 30). Mutually exclusive with awaitResults.",
+        "type": "number"
+      }
+    },
+    "required": [
+      "ids"
+    ],
+    "type": "object"
+  }
+}

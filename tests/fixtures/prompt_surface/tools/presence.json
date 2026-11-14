@@ -1,0 +1,43 @@
+{
+  "description": "List live people, devices and recent activity on this gateway, computed at query time from connected clients and session activity (no presence store). People are admitted Telegram users with their last activity; online means a turn or live subagent work is running for them right now. Devices are the dashboard client and each person's Telegram client. Owner only: a non-owner request gets nothing. No location or network data is ever reported.",
+  "name": "presence",
+  "parameters": {
+    "properties": {
+      "action": {
+        "description": "List connected people (default), inspect a person, or inspect a connected device.",
+        "enum": [
+          "list",
+          "person",
+          "device"
+        ],
+        "type": "string"
+      },
+      "deviceId": {
+        "description": "For device: the exact presence device id returned by this tool.",
+        "type": "string"
+      },
+      "include": {
+        "description": "Optional device details per person. Only 'devices' is accepted; network and location are never reported.",
+        "items": {
+          "enum": [
+            "devices"
+          ],
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "limit": {
+        "description": "Maximum people returned (default 50, maximum 100); truncation is reported.",
+        "maximum": 100,
+        "minimum": 1,
+        "type": "integer"
+      },
+      "person": {
+        "description": "For person: me, a person id (telegram:<user id> or the bare id), or an exact display name.",
+        "type": "string"
+      }
+    },
+    "required": [],
+    "type": "object"
+  }
+}

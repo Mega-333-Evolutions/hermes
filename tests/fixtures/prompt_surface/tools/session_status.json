@@ -1,0 +1,14 @@
+{
+  "description": "Read this session's status: the model answering right now (model id and provider, with where the id came from), the live usage windows with percent used, and the session's label, state and activity. Omit session_id to report the current session. Read-only: it reports the model, it never changes it.",
+  "name": "session_status",
+  "parameters": {
+    "properties": {
+      "session_id": {
+        "description": "Session to report on. Omit for the current session.",
+        "type": "string"
+      }
+    },
+    "required": [],
+    "type": "object"
+  }
+}

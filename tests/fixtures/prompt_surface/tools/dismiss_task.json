@@ -1,0 +1,16 @@
+{
+  "description": "Remove a pending suggestion created by suggest_task. Nothing is started, and an approval card still waiting on it is withdrawn. Only a pending suggestion can be dismissed.",
+  "name": "dismiss_task",
+  "parameters": {
+    "properties": {
+      "task_id": {
+        "description": "The task_id returned by suggest_task.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "task_id"
+    ],
+    "type": "object"
+  }
+}

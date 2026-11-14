@@ -1,0 +1,52 @@
+{
+  "description": "List Hermes sessions from the session registry, newest first. Each row carries its label (title), source, model, last activity, message count, pin/archive state and a short preview, plus a link that renders as a titled link when you refer to the session. Use to find a session to resume, organise, or read — pass archived='archived' for the archived view, archived='all' to include archived rows, pinned_only=true for pins only, search to match a session id or title.",
+  "name": "sessions_list",
+  "parameters": {
+    "properties": {
+      "archived": {
+        "default": "active",
+        "description": "'active' (default) hides archived rows, 'archived' lists only them, 'all' includes both.",
+        "enum": [
+          "active",
+          "archived",
+          "all"
+        ],
+        "type": "string"
+      },
+      "include_children": {
+        "default": false,
+        "description": "Include compression/branch children as their own rows. Default false.",
+        "type": "boolean"
+      },
+      "limit": {
+        "default": 20,
+        "description": "Max sessions to return. Default 20, max 100.",
+        "type": "integer"
+      },
+      "offset": {
+        "default": 0,
+        "description": "Rows to skip for the next page. Default 0.",
+        "type": "integer"
+      },
+      "pinned_only": {
+        "default": false,
+        "description": "Only sessions pinned with sessions(pinned=true). Default false.",
+        "type": "boolean"
+      },
+      "profile": {
+        "description": "Read another Hermes profile's sessions (read-only). Omit for the current profile.",
+        "type": "string"
+      },
+      "search": {
+        "description": "Match against a session id or title.",
+        "type": "string"
+      },
+      "source": {
+        "description": "Only sessions from this source (e.g. cli, telegram).",
+        "type": "string"
+      }
+    },
+    "required": [],
+    "type": "object"
+  }
+}

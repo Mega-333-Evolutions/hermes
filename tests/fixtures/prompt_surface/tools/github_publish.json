@@ -1,0 +1,62 @@
+{
+  "description": "Publish a session workspace as a draft GitHub PR, and manage the bound PR afterwards. Order: commit the work, push the head branch, then action=prepare, then action=publish (creates the draft PR and returns its URL). A second publish after a newer remote head merges that head in instead of overwriting it. Actions: readiness (report publishability, changes nothing), prepare (bind workspace to a PR), publish (push + create/update the draft PR), inspect (bound PR + local state), refresh_base (merge newer remote base, rebind after an identity change), edit (PR title/body), review (request reviewers), evidence (post evidence as a PR comment). Refuses with no effect on a dirty/untracked/staged/unpublished tree and while the session has running children or background processes; never force-pushes. Needs a GitHub credential (gh login or GITHUB_TOKEN) for the PR itself; the push uses the repo's own remote auth.",
+  "name": "github_publish",
+  "parameters": {
+    "additionalProperties": false,
+    "properties": {
+      "action": {
+        "description": "Which publish step to run.",
+        "enum": [
+          "edit",
+          "evidence",
+          "inspect",
+          "prepare",
+          "publish",
+          "readiness",
+          "refresh_base",
+          "review"
+        ],
+        "type": "string"
+      },
+      "base_branch": {
+        "description": "Base branch for the PR; defaults to the remote's default branch.",
+        "type": "string"
+      },
+      "body": {
+        "description": "PR body for publish or edit.",
+        "type": "string"
+      },
+      "evidence": {
+        "description": "Evidence text to post as a comment on the PR (evidence action).",
+        "type": "string"
+      },
+      "head_branch": {
+        "description": "Head branch to publish; defaults to the current branch.",
+        "type": "string"
+      },
+      "reviewers": {
+        "description": "GitHub logins to request a review from (review action).",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "session_id": {
+        "description": "Session whose workspace to publish; defaults to the current session.",
+        "type": "string"
+      },
+      "title": {
+        "description": "PR title for publish (defaults to the head commit subject) or edit.",
+        "type": "string"
+      },
+      "workspace_path": {
+        "description": "Explicit workspace path (a git worktree root). Defaults to the session's recorded working directory.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "action"
+    ],
+    "type": "object"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "description": "Send one message to a Telegram conversation by its conv_ ref and wait for the reply that answers it. Returns the actual reply from the other side — a message that replies to the sent message, or in a DM the next message after the send — or a timeout when nobody answers. Never resend on a timeout; the message went out.",
+  "name": "conversations_turn",
+  "parameters": {
+    "properties": {
+      "conversation_ref": {
+        "description": "The conv_ ref from conversations_list for the conversation to message.",
+        "type": "string"
+      },
+      "message": {
+        "description": "Message to send to that conversation.",
+        "type": "string"
+      },
+      "timeoutSeconds": {
+        "default": 60,
+        "description": "Seconds to wait for the reply (default 60, max 300).",
+        "type": "number"
+      }
+    },
+    "required": [
+      "conversation_ref",
+      "message"
+    ],
+    "type": "object"
+  }
+}

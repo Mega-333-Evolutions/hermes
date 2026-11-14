@@ -1,0 +1,9 @@
+{
+  "description": "List the agents in this run: the current agent and its live subagents. Hermes spawns subagents by task rather than by a configured agent id, so this reports the live registry — each entry carries its goal, model, status and depth, and agents that already finished are not listed.",
+  "name": "agents_list",
+  "parameters": {
+    "properties": {},
+    "required": [],
+    "type": "object"
+  }
+}

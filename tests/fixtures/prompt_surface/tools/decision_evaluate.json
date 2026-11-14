@@ -1,0 +1,61 @@
+{
+  "description": "Evaluate ONLY the supplied state with a separately configured decision model. Ask boolean (explicit answer and/or probability_true), choice (competing alternatives), or score (0-1 rubric position) questions. The decision model sees nothing but the state and questions you pass — no conversation, files, or memory. It abstains where the evidence is missing, and a missing probability is never inferred. Advisory only: results never authorize actions. Requires decisionModel in config.yaml.",
+  "name": "decision_evaluate",
+  "parameters": {
+    "additionalProperties": false,
+    "properties": {
+      "questions": {
+        "items": {
+          "additionalProperties": false,
+          "properties": {
+            "criteria": {
+              "description": "Optional judging criteria: for boolean, {\"true\": ..., \"false\": ...}; for choice, one entry per option; for score, an ordered rubric list."
+            },
+            "id": {
+              "description": "Stable id for this question, echoed in the answers.",
+              "type": "string"
+            },
+            "options": {
+              "description": "Required for choice: the competing alternatives.",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 2,
+              "type": "array"
+            },
+            "question": {
+              "description": "The question, judged only against state.",
+              "type": "string"
+            },
+            "type": {
+              "description": "boolean: true/false + probability_true. choice: pick one listed option. score: 0-1 rubric position.",
+              "enum": [
+                "boolean",
+                "choice",
+                "score"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "type",
+            "question"
+          ],
+          "type": "object"
+        },
+        "maxItems": 10,
+        "minItems": 1,
+        "type": "array"
+      },
+      "state": {
+        "description": "The only evidence the decision model sees: a claim, a JSON object, or a list. Keep it to the evidence the questions need."
+      }
+    },
+    "required": [
+      "state",
+      "questions"
+    ],
+    "type": "object"
+  }
+}

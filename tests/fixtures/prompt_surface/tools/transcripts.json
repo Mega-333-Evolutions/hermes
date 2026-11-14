@@ -1,0 +1,52 @@
+{
+  "description": "List, read, transcribe, or store meeting and voice transcripts. `list` shows stored transcript captures (newest first); `show` reads one capture back (pass `meeting_id`, or omit it to read the active capture; `last` returns only the final N lines). `transcribe` turns an audio file into text with the configured speech-to-text provider. `status` reports which speech-to-text provider is configured and whether a capture is active. `import` stores transcript text as a capture so `list` and `show` can read it back later.",
+  "name": "transcripts",
+  "parameters": {
+    "additionalProperties": false,
+    "properties": {
+      "action": {
+        "description": "What to do: list captures, show one, transcribe an audio file, report status, or import transcript text.",
+        "enum": [
+          "list",
+          "show",
+          "transcribe",
+          "status",
+          "import"
+        ],
+        "type": "string"
+      },
+      "file": {
+        "description": "Audio file to transcribe (for `transcribe`). Absolute path, or relative to the workspace.",
+        "type": "string"
+      },
+      "last": {
+        "description": "For `show`: return only the last N lines of the capture.",
+        "minimum": 1,
+        "type": "integer"
+      },
+      "limit": {
+        "default": 20,
+        "description": "For `list`: maximum captures to return (default 20).",
+        "maximum": 50,
+        "minimum": 1,
+        "type": "integer"
+      },
+      "meeting_id": {
+        "description": "Capture id from `list` (for `show`); for `import`, an optional label for the stored capture. Omit `meeting_id` on `show` to read the active capture.",
+        "type": "string"
+      },
+      "model": {
+        "description": "Optional speech-to-text model override for `transcribe` (provider default otherwise).",
+        "type": "string"
+      },
+      "transcript": {
+        "description": "Transcript text to store (for `import`).",
+        "type": "string"
+      }
+    },
+    "required": [
+      "action"
+    ],
+    "type": "object"
+  }
+}

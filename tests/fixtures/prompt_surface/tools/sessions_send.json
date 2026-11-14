@@ -1,0 +1,21 @@
+{
+  "description": "Send a message to an existing session by its session id or subagent run id. A subagent waiting for a message resumes with it; a running subagent takes it at its next iteration boundary; any other session starts a new turn carrying it. The target must belong to this profile — another profile's session, your own session, or an unknown id is refused.",
+  "name": "sessions_send",
+  "parameters": {
+    "properties": {
+      "message": {
+        "description": "Message to deliver to that session.",
+        "type": "string"
+      },
+      "sessionKey": {
+        "description": "Session id or subagent run id to message.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "sessionKey",
+      "message"
+    ],
+    "type": "object"
+  }
+}

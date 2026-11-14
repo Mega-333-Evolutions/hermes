@@ -1,0 +1,50 @@
+{
+  "description": "Read or organise one Hermes session — or patch several at once. get (default) returns the session's label, source, model, pin/archive state and preview. patch sets label (the session's title; empty string clears it), pinned, archived (false restores), or hidden, on one session (session_id, or the current session when omitted) or on up to 100 via targets. Hermes sessions have no groups, so no group action is offered. Pinning keeps a session visible; archiving hides it from the default listing but keeps its messages.",
+  "name": "sessions",
+  "parameters": {
+    "properties": {
+      "action": {
+        "default": "get",
+        "description": "'get' reads the row; 'patch' applies the label/pinned/archived/hidden changes.",
+        "enum": [
+          "get",
+          "patch"
+        ],
+        "type": "string"
+      },
+      "archived": {
+        "description": "Patch only. True archives the session, false restores it.",
+        "type": "boolean"
+      },
+      "hidden": {
+        "description": "Patch only. True hides the session from the default listing, false unhides it.",
+        "type": "boolean"
+      },
+      "label": {
+        "description": "Patch only. New title for the session (max 100 chars); empty string clears it.",
+        "type": "string"
+      },
+      "pinned": {
+        "description": "Patch only. True pins the session, false unpins it.",
+        "type": "boolean"
+      },
+      "profile": {
+        "description": "Get only. Read a session from another Hermes profile (read-only); patch writes the current profile only.",
+        "type": "string"
+      },
+      "session_id": {
+        "description": "Session to read or patch. Omit to target the current session. Cannot be combined with targets.",
+        "type": "string"
+      },
+      "targets": {
+        "description": "Patch only. Up to 100 session ids to patch identically; cannot be combined with session_id.",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      }
+    },
+    "required": [],
+    "type": "object"
+  }
+}

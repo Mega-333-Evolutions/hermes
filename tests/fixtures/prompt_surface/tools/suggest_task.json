@@ -1,0 +1,25 @@
+{
+  "description": "Suggest a follow-up task for the owner to approve. The suggestion is staged and shown to the owner as an approval card in this chat (Approve-once / Deny, owner-only); on approval the follow-up starts as its own agent run with the suggested prompt. If the owner does not answer within the approval window the suggestion stays pending — re-present it or dismiss it with dismiss_task. In autonomous mode the suggestion auto-runs with no card and no approval. Title at most 60 characters, prompt at most 32 KB. Returns the task_id and the outcome (pending / approved / started / denied).",
+  "name": "suggest_task",
+  "parameters": {
+    "properties": {
+      "prompt": {
+        "description": "The full prompt the follow-up run starts with (at most 32 KB).",
+        "type": "string"
+      },
+      "title": {
+        "description": "Short title for the follow-up (at most 60 characters). Shown on the approval card.",
+        "type": "string"
+      },
+      "tldr": {
+        "description": "One-line summary shown on the approval card; defaults to the start of the prompt.",
+        "type": "string"
+      }
+    },
+    "required": [
+      "title",
+      "prompt"
+    ],
+    "type": "object"
+  }
+}

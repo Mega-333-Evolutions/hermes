@@ -1,0 +1,10 @@
+{
+  "description": "Inspect the secret-free effective GitHub account, credential health, Git author, and scopes for this agent. Read-only: reports what `gh auth status` and the connector credential chain say, plus whether the credential actually answers the GitHub API. If the credential is not healthy, ask the operator to run `gh auth login` (or set GITHUB_TOKEN / GH_TOKEN), then check github_identity_status again.",
+  "name": "github_identity_status",
+  "parameters": {
+    "additionalProperties": false,
+    "properties": {},
+    "required": [],
+    "type": "object"
+  }
+}
