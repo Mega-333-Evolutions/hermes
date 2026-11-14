@@ -15,7 +15,7 @@ HELPERS = ROOT / "deploy/huggingface"
 SPEC = importlib.util.spec_from_file_location("hf_check_runtime", HELPERS / "check_runtime.py")
 runtime = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(runtime)
-SOURCE_SHA = "36c00c431d17ddb8a848c6a6036db73f02d09818"
+SOURCE_SHA = "949aed09eb4f3751cd32de10f2fc4254553bd2d8"
 
 
 def test_real_gateway_loop_uses_pinned_uvloop_without_replacing_policy():

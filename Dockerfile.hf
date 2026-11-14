@@ -61,7 +61,7 @@ RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && 
 
 ARG HERMES_REPO_URL=https://github.com/Mega-333-Evolutions/hermes.git
 # Application and helper revisions are independent: never self-pin this helper commit.
-ARG HERMES_REF=36c00c431d17ddb8a848c6a6036db73f02d09818
+ARG HERMES_REF=949aed09eb4f3751cd32de10f2fc4254553bd2d8
 USER Hermes
 WORKDIR /home/Hermes
 # Secret file must be readable by UID1000. Never place the token in ARG/ENV/URL.
