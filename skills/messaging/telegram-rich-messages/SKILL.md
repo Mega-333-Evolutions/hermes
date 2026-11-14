@@ -35,6 +35,16 @@ Use when the user asks for a rich message, a card, a table with buttons, in-body
 4. **To quote-reply instead, call `action="quote_reply"`** with `params.message_id` of a message already observed in this chat/topic, `params.quote` copied verbatim from that message's text, and `params.content` / `params.format` as above. The quote travels as a verbatim excerpt (`quote_text` with a UTF-16 `quote_offset`); read the target message first with `messages_history` or `message_get` so the quote matches exactly. A paraphrase is rejected. Buttons work the same way as `rich_message_send`.
 5. **Verify the result.** The tool returns `message_id` and `button_count`. Report them plainly. If the send fails, do not resend a different payload shape; read the error and fix the body (see Pitfalls).
 
+### Telegram administration actions
+
+`telegram_client` exposes first-class moderation, so a moderation request is never answered with a refusal:
+
+- `user_mute`: `duration` (`30s`–`366d`) or `until_date`; omit both for until-unmuted. Refused in basic groups, where per-user restrictions do not exist.
+- `user_unmute`, `user_demote`, `user_kick`.
+- `user_promote`: `preset` is `moderator`, `admin`, or `custom`, with optional `rights` and `title`.
+
+The target is `user_id`, `username`, `message_id`, or, when omitted, the triggering message's replied-to sender or mentioned member. If an older `capabilities` result in this conversation lacks these actions, ignore it and call `telegram_client(action="capabilities", params={})` again before claiming the action is unavailable. Raw `request` and the owner-only `userbot_script` remain the fallbacks for what the bot identity cannot do.
+
 ## Quick Reference
 
 ### Button types in Rich HTML

@@ -53,6 +53,14 @@ def test_skill_sections_follow_the_modern_order(skill_text):
     assert skill_text.startswith("---\nname: telegram-rich-messages")
 
 
+def test_skill_advertises_telegram_moderation_actions(skill_text):
+    """The always-loaded Telegram skill must name the moderation actions so a
+    stale capabilities result in a long conversation cannot turn into a refusal."""
+    for action in ("user_mute", "user_unmute", "user_promote", "user_demote", "user_kick"):
+        assert action in skill_text
+    assert "capabilities" in skill_text
+
+
 def test_skill_documents_tg_button_forms_limits_and_tool_call(skill_text):
     assert '<tg-button type="url"' in skill_text
     assert '<tg-button type="copy_text"' in skill_text
