@@ -15,12 +15,15 @@ TELEGRAM_CLIENT_SCHEMA = {
     "name": "telegram_client",
     "description": (
         "Operate Telegram through the current conversation's bot identity. Any admitted human may use "
-        "every action; use action=capabilities to discover the operations and their parameters. Reads "
+        "every non-userbot action; use action=capabilities to discover the operations and their parameters. Reads "
         "cover accessible messages, polls, files and chat/user metadata. gateway_logs reads only the "
         "active profile's gateway.log or errors.log (up to 100 recent lines, bounded and forcibly "
         "secret/token-redacted); it accepts no paths and cannot write or control services. "
         "Administrative writes, moderation, customization, managed bots and approved bot peers run "
-        "immediately on call. pin/unpin, reactions, ephemeral DM sends/deletes, and cross-chat "
+        "immediately on call. Moderation covers user_mute (duration or until_date), user_unmute, "
+        "user_promote (moderator/admin/custom preset), user_demote, and user_kick; the target is an "
+        "explicit user_id/username/message_id or, when omitted, the triggering message's replied-to "
+        "sender or mentioned member. pin/unpin, reactions, ephemeral DM sends/deletes, and cross-chat "
         "replies to observed messages execute on call. "
         "send_message sends to a validated numeric chat/user ID or @username; the recipient is validated "
         "and resolved server-side. It takes reply_to, thread_id, silent, buttons, quote, effect, pin, "
@@ -30,6 +33,10 @@ TELEGRAM_CLIENT_SCHEMA = {
         "request runs one structured Telethon TL request — any method, read or write — through the same live "
         "client (method plus JSON args, and kwargs for nested TL objects), with the peer defaulting to the current chat; it is a structured descriptor, not code "
         "evaluation. "
+        "When the bot identity cannot perform an operation, do not refuse: use request when it can express the call, "
+        "otherwise the owner-only userbot_script runs async Telethon code in-process with a connected user-account "
+        "client (userbot_import stores the owner-supplied StringSession mode 0600; userbot_status verifies it). "
+        "That is the supported fallback for BotFather management and user-only RPCs. "
         "Widget actions send, resend, upload, answer, edit, and read layer-233 HTML widgets "
         "in the current chat only, with no confirmation card and no chat target, and only inside a DM: "
         "widget_send and widget_send_by_id refuse any chat that is not a DM, and a group gets the same "
@@ -56,8 +63,8 @@ TELEGRAM_CLIENT_SCHEMA = {
     "parameters": {
         "type": "object",
         "properties": {
-            "action": {"type": "string", "description": "Any admitted human may call any action; use capabilities to discover the operations and their parameters."},
-            "params": {"type": "object", "description": "Parameters for the discovered operation; no credential or path parameters. For request, use method as a Telethon TL function name (e.g. channels.GetFullChannel), args as JSON scalar fields, and kwargs for nested TL objects; any TL method may be called, read or write. The peer defaults to the current chat, never supplied in args. For gateway_logs, choose only gateway or errors and an optional 1–100 line limit. For rich_message_send, use content, optional format, and optional one-way url/copy/profile buttons with optional styles; Rich HTML content may also carry <tg-button> pills inline. For quote_reply, use message_id of an already-observed message in this chat/topic, quote as a verbatim excerpt of its text, content, and the same optional format/buttons. For pin_message/unpin_message, use message_id of an already-observed message in this chat/topic with optional silent; unpin_message also takes pm_oneside for a one-sided unpin in a DM only. For reaction, use emoji as one of Telegram's standard reaction emojis, optional big true for a big reaction (default false), and optional message_id of an already-observed message — omit message_id to react to the current message. For leave, use no parameters — it leaves the current chat (supergroup/channel, or basic group by removing the bot itself); a DM is refused. For ephemeral_send, use content and optional format (DM only, best-effort delivery); for ephemeral_delete, message_id of an observed ephemeral message. For cross_chat_reply, use message_id of a message already observed in any chat/topic this profile has seen — the reply target comes from that observed message, never from params — plus content and the same optional format/buttons.         For send_message, use recipient as a numeric Telegram chat/user ID or @username, content, and optional format; "
+            "action": {"type": "string", "description": "Any admitted human may call any non-userbot action; userbot_import/userbot_status/userbot_script are owner-only. Use capabilities to discover the operations and their parameters."},
+            "params": {"type": "object", "description": "Parameters for the discovered operation; no credential or path parameters. For request, use method as a Telethon TL function name (e.g. channels.GetFullChannel), args as JSON scalar fields, and kwargs for nested TL objects; any TL method may be called, read or write. The peer defaults to the current chat, never supplied in args. For user_mute, use user_id/username/message_id, duration (30s–366d) or until_date, and optional rights; omit duration and until_date for until unmuted. For user_promote, use preset moderator/admin/custom with optional rights/title; user_demote/user_unmute/user_kick need only the target. Omit the target to use the triggering message's replied-to sender or mentioned member. For userbot_import, use session as the Telethon user-account StringSession. For userbot_script, use code as an async body with a connected client; it returns a JSON-safe value and is limited to 120 seconds. For gateway_logs, choose only gateway or errors and an optional 1–100 line limit. For rich_message_send, use content, optional format, and optional one-way url/copy/profile buttons with optional styles; Rich HTML content may also carry <tg-button> pills inline. For quote_reply, use message_id of an already-observed message in this chat/topic, quote as a verbatim excerpt of its text, content, and the same optional format/buttons. For pin_message/unpin_message, use message_id of an already-observed message in this chat/topic with optional silent; unpin_message also takes pm_oneside for a one-sided unpin in a DM only. For reaction, use emoji as one of Telegram's standard reaction emojis, optional big true for a big reaction (default false), and optional message_id of an already-observed message — omit message_id to react to the current message. For leave, use no parameters — it leaves the current chat (supergroup/channel, or basic group by removing the bot itself); a DM is refused. For ephemeral_send, use content and optional format (DM only, best-effort delivery); for ephemeral_delete, message_id of an observed ephemeral message. For cross_chat_reply, use message_id of a message already observed in any chat/topic this profile has seen — the reply target comes from that observed message, never from params — plus content and the same optional format/buttons.         For send_message, use recipient as a numeric Telegram chat/user ID or @username, content, and optional format; "
         "the recipient is validated and resolved server-side. Optional reply_to answers a message in the recipient chat, "
         "thread_id targets a forum topic there, silent sends without notifying, buttons adds up to 8 native one-way "
         "buttons, quote quotes a verbatim excerpt of the replied-to message, effect sets a message effect id, pin pins "

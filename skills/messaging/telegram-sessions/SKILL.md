@@ -14,7 +14,7 @@ metadata:
 
 # Telegram Sessions Skill
 
-Operate Telegram accounts as standalone clients: log in, keep sessions alive, and maintain many accounts side by side. This skill covers accounts the agent runs itself. It does not cover the gateway's own connected session — never do direct or script operations on that session; use the `telegram_client` tool for it.
+Operate Telegram accounts as standalone clients: log in, keep sessions alive, and maintain many accounts side by side. This skill covers accounts the agent runs itself. It does not cover the gateway's own connected bot session — never do direct or script operations on that session; use the `telegram_client` tool for it. A user-account StringSession can also be imported into the gateway as an owner-only helper for actions the bot identity cannot perform.
 
 ## When to Use
 
@@ -25,7 +25,7 @@ Use when the user asks to log in to a Telegram account, check whether an account
 - Telethon 1.45.0, pinned by the repo (the Telegram adapter enforces the pin for gateway work through `require_pinned_telethon`; standalone scripts use the same installed wheel). All constructors and signatures below are from that wheel — do not write them from memory.
 - A Telegram API id and API hash for the app the account logs in with. Use the already-configured api_id and api_hash when the user does not provide one; ask the user when neither is configured.
 - Login codes and 2FA passwords come from the user: ask for the OTP and the 2FA password directly when the login flow asks for them.
-- The gateway adapter runs bot accounts, so user accounts run as standalone clients outside the gateway.
+- The gateway adapter runs bot accounts, so user accounts run as standalone clients outside the gateway. The owner may also import one user-account StringSession into the active profile as a one-shot helper (`userbot_import`); it is stored under `<profile-home>/telegram-userbot/session` with mode `0600` and never returned by a tool.
 
 ## How to Run
 
@@ -35,6 +35,7 @@ Use when the user asks to log in to a Telegram account, check whether an account
 4. **Verify.** Call `get_me()` and report the account's id, username, and whether it is a bot or a user account.
 5. **Store nothing but the session.** Keep the session file; discard codes and passwords the moment login succeeds.
 6. **Run standalone clients as scripts.** Create a script with `patch` and run it with the `terminal` tool; read results back with `read_file`.
+7. **Prefer the imported helper for one-shot user-only work.** In a Telegram turn, `userbot_status` reports whether the owner's session is configured; `userbot_script` runs async Telethon code in-process with the profile's API credentials (terminal children strip them). Use a long-lived standalone client only for persistent triggers, voice chats, or monitoring.
 
 ## Quick Reference
 
@@ -51,6 +52,8 @@ Use when the user asks to log in to a Telegram account, check whether an account
 | Disconnect | `await client.disconnect()` | Keeps the session; reconnect with `connect()`. |
 | Change 2FA | `await client.edit_2fa(...)` | See Procedure. |
 | Direct TL request | `await client(request)` | Any Telethon TL request object, run on the account. |
+| Import gateway userbot | `telegram_client(action="userbot_import", params={"session": ...})` | Owner-only; verifies authorization and stores mode `0600`. |
+| Run gateway userbot code | `telegram_client(action="userbot_script", params={"code": ...})` | Owner-only; async body with connected `client`, 120-second limit, no persistent process. |
 | Voice chat | `PyTgCalls(client)` | See Voice chats. |
 
 ## Procedure
@@ -72,6 +75,13 @@ await client.connect()
 if not await client.is_user_authorized():
     await client.start(phone=phone, code_callback=code_callback, password=password)
 ```
+
+### Gateway userbot helper
+
+- The connected gateway identity is a bot. When a task needs a real user account (BotFather management, a user-only RPC, an action the bot is forbidden to call), do not refuse and do not substitute the bot. Use the imported userbot session.
+- `telegram_client(action="userbot_status")` reports `configured` and `authorized`. If no session is configured, ask the owner for a Telethon StringSession and pass it to `userbot_import`; the action connects, verifies it is an authorized user (not a bot), and stores it under the profile home with mode `0600`.
+- `userbot_script` takes a `code` string that is the async body of a function. A connected `client`, `asyncio`, `functions`, `types`, `utils`, `source`, `chat_id`, `thread_id`, and `result` are pre-bound. `return` a JSON-safe value; `print` progress. The call is capped at 120 seconds, then the client disconnects. This is a per-call helper, not a long-lived process.
+- For persistent triggers, voice chats, or monitoring, use a standalone client/script below instead. Never run a second live client on the same session string while the helper call is active.
 
 ### Log in a user account
 
@@ -112,7 +122,7 @@ if not await client.is_user_authorized():
 - One `TelegramClient` instance per account, one session file (or one stored string) per account, named after the account. A session file holds one account's authorization — it is not shared between accounts.
 - Keep a registry: account label, phone/username, bot-or-user, session location, library in use, and last-verified date. Verify each account with `is_user_authorized()` plus `get_me()` before operating it; an account that fails verification goes through the login flow, not through another account's session.
 - Telethon is the bundled, pinned library for Hermes work. Another MTProto library works when it is installed — use the one the user names.
-- The gateway holds one client per profile (bot-token only); profiles are the isolation unit there. Standalone user accounts run as scripts outside the gateway, one process per account or one process holding one client per account.
+- The gateway holds one client per profile (bot-token only); profiles are the isolation unit there. Standalone user accounts run as scripts outside the gateway, one process per account or one process holding one client per account. The imported userbot helper opens a short-lived client per action and disconnects it, so it never contends with a long-lived client using the same string session.
 
 ### Limited or flagged accounts
 

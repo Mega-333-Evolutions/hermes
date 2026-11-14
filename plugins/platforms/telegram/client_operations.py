@@ -20,7 +20,16 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
-from .client_operations_validation import validate_emoji, validate_recipient, validate_send_message_payload
+from .client_operations_moderation import (
+    MODERATION_ACTIONS, MODERATION_PARAMETERS, ModerationOperationsMixin,
+    validate_moderation_payload,
+)
+from .client_operations_userbot import (
+    USERBOT_ACTIONS, USERBOT_PARAMETERS, UserbotOperationsMixin, validate_userbot_payload,
+)
+from .client_operations_validation import (
+    validate_chat_admin_payload, validate_emoji, validate_recipient, validate_send_message_payload,
+)
 from .client_operations_widgets import execute_direct
 from .download_connections import DownloadConnectionPool
 from .gateway_logs import MAX_LOG_LINES, read_gateway_logs
@@ -42,7 +51,7 @@ MUTATION_ACTIONS = {
     "user_ban", "user_unban", "messages_delete", "bot_profile_update",
     "pin_message", "unpin_message", "reaction", "leave",
     "ephemeral_send", "ephemeral_delete", "cross_chat_reply", "send_message",
-}
+} | MODERATION_ACTIONS
 # Widget actions: direct sends/edits/reads against the current
 # chat, executed immediately like rich_message_send. They are
 # deliberately NOT expressible through the `request` action: widget
@@ -54,7 +63,7 @@ WIDGET_ACTIONS = {
     "widget_get_public_data",
 }
 DIRECT_ACTIONS = {"rich_message_send", "quote_reply", "widget_show"} | WIDGET_ACTIONS
-ALL_ACTIONS = READ_ACTIONS | MUTATION_ACTIONS | DIRECT_ACTIONS | REQUEST_ACTIONS
+ALL_ACTIONS = READ_ACTIONS | MUTATION_ACTIONS | DIRECT_ACTIONS | REQUEST_ACTIONS | USERBOT_ACTIONS
 MAX_PAGE = 50
 DOWNLOAD_IDLE_TIMEOUT = 120.0
 DOWNLOAD_DISK_RESERVE_BYTES = 16 * 1024 * 1024
@@ -188,6 +197,10 @@ CLIENT_ACTION_PARAMETERS = {
 }
 
 
+CLIENT_ACTION_PARAMETERS.update(MODERATION_PARAMETERS)
+CLIENT_ACTION_PARAMETERS.update(USERBOT_PARAMETERS)
+
+
 # Structured requests accept any Telethon TL function name: there is no
 # method allowlist. The name is a structured descriptor (one dotted name,
 # class part uppercase, optional trailing ``Request``), never a dotted-path
@@ -209,7 +222,7 @@ _TL_DESCRIPTOR_MAX_DEPTH = 4
 _TL_DESCRIPTOR_MAX_LIST = 100
 
 
-class TelegramClientOperations:
+class TelegramClientOperations(ModerationOperationsMixin, UserbotOperationsMixin):
     """Execute a bounded set of Telegram operations against the source's current chat."""
 
     def __init__(self, adapter: Any):
@@ -384,6 +397,8 @@ class TelegramClientOperations:
             parameters = dict(CLIENT_ACTION_PARAMETERS)
             return {"ok": True, "status": "complete", "action": action, "data": {
                 "reads": sorted(reads), "mutations": sorted(MUTATION_ACTIONS),
+                "moderation_actions": sorted(MODERATION_ACTIONS),
+                "userbot_actions": sorted(USERBOT_ACTIONS),
                 "direct_actions": sorted(DIRECT_ACTIONS),
                 "structured_requests": sorted(REQUEST_ACTIONS),
                 "structured_request_help": "Any Telethon TL method, read or write: method plus args (JSON scalars) and kwargs (nested TL objects); the peer defaults to the current chat.",
@@ -394,11 +409,15 @@ class TelegramClientOperations:
                 "media_download_limit_bytes": None,
                 "media_download_transport": f"Telethon/MTProto parallel document parts (up to {PARALLEL_PARTS}); native media fallback; streamed to disk, explicit only",
                 "mutations_require_confirmation": False,
+                "moderation_help": "user_mute/user_unmute/user_promote/user_demote/user_kick target a member of the current supergroup/channel (mute/unmute) or group/channel (promote/demote/kick). Omit the target to use the triggering message's replied-to sender or mentioned member. Mute takes duration (30s–366d) or until_date; omit both for until unmuted. Promote presets: moderator, admin, custom.",
+                "userbot_help": "Owner-only. userbot_import stores a Telethon user-account StringSession (never echoed), userbot_status verifies it, and userbot_script runs bounded async Telethon code with a connected 'client', the Telethon modules, and a 120-second limit. Use it for operations the bot account cannot perform (BotFather management, user-only RPCs) instead of refusing.",
             }}
         try:
             profile = self._profile(source)
         except Exception:
             return self._error("PROFILE_UNAVAILABLE", "The Telegram profile could not be resolved safely.")
+        if action in USERBOT_ACTIONS:
+            return await self.request_userbot(source, action, params)
         if action in DIRECT_ACTIONS:
             try:
                 clean_params = self._validate_payload(action, params)
@@ -408,6 +427,8 @@ class TelegramClientOperations:
                 return self._error("INVALID_ARGUMENT", str(exc))
             except Exception as exc:
                 return self._error(self._error_code(exc), self._safe_error(exc))
+        if action in MODERATION_ACTIONS:
+            return await self.request_moderation(source, action, params)
         if action in MUTATION_ACTIONS:
             try:
                 clean_params = self._validate_payload(action, params)
@@ -455,6 +476,8 @@ class TelegramClientOperations:
         allowed, reason = self._authorize(source)
         if not allowed:
             return self._error("FORBIDDEN", reason)
+        if action in MODERATION_ACTIONS:
+            return await self.request_moderation(source, action, params)
         try:
             clean_params = self._validate_payload(action, params)
             self._resolve_reaction_target(source, action, clean_params)
@@ -1118,37 +1141,11 @@ class TelegramClientOperations:
             return validate_send_message_payload(
                 p, rich_body=cls._validate_rich_body, rich_buttons=cls._validate_rich_buttons,
                 int_value=cls._int, quote_excerpt=cls._validate_quote_excerpt)
-        if action == "chat_title":
-            value = str(p.get("title", "")).strip()
-            if not value or len(value) > 128:
-                raise ValueError("title must contain 1–128 characters")
-            return {"title": value}
-        if action == "chat_about":
-            if "about" not in p:
-                raise ValueError("about is required; use an explicit empty string to clear it")
-            value = str(p.get("about", ""))
-            if len(value) > 255:
-                raise ValueError("about must be at most 255 characters")
-            return {"about": value}
-        if action in {"user_ban", "user_unban"}:
-            return {"user_id": str(cls._int(p.get("user_id"), "user_id", maximum=2**63 - 1))}
-        if action == "chat_permissions":
-            if "denied" not in p:
-                raise ValueError("denied is required; an explicit empty object clears all default restrictions")
-            rights = p["denied"]
-            supported = {"send_messages", "send_media", "send_polls", "invite_users", "pin_messages", "change_info", "manage_topics"}
-            if not isinstance(rights, dict) or set(rights) - supported:
-                raise ValueError("denied must contain supported permission names mapped to booleans")
-            if any(type(value) is not bool for value in rights.values()):
-                raise ValueError("denied permission values must be booleans")
-            return {"denied": dict(rights)}
-        if action == "bot_profile_update":
-            fields = {k: str(p[k]) for k in ("name", "about", "description") if k in p}
-            limits = {"name": 64, "about": 120, "description": 512}
-            if not fields or any(len(v) > limits[k] for k, v in fields.items()):
-                raise ValueError("Supply bot name (64), about (120), or description (512 characters max)")
-            return fields
-        raise ValueError(f"No payload schema for {action}")
+        if action in MODERATION_ACTIONS:
+            return validate_moderation_payload(action, p, cls._int)
+        if action in USERBOT_ACTIONS:
+            return validate_userbot_payload(action, p)
+        return validate_chat_admin_payload(action, p, cls._int)
 
     def _html_button(self, source: Any, button: dict[str, Any]) -> str:
         """Render one one-way button as an in-body <tg-button> pill.

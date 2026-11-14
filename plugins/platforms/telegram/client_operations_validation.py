@@ -313,3 +313,39 @@ def validate_send_message_payload(
         "force_document": force_document,
         "location": location,
     }
+
+
+def validate_chat_admin_payload(action: str, params: dict[str, Any], int_value: Any) -> dict[str, Any]:
+    """Validate the chat-settings and bot-profile actions that take only scalars."""
+    p = dict(params)
+    if action == "chat_title":
+        value = str(p.get("title", "")).strip()
+        if not value or len(value) > 128:
+            raise ValueError("title must contain 1–128 characters")
+        return {"title": value}
+    if action == "chat_about":
+        if "about" not in p:
+            raise ValueError("about is required; use an explicit empty string to clear it")
+        value = str(p.get("about", ""))
+        if len(value) > 255:
+            raise ValueError("about must be at most 255 characters")
+        return {"about": value}
+    if action in {"user_ban", "user_unban"}:
+        return {"user_id": str(int_value(p.get("user_id"), "user_id", maximum=2**63 - 1))}
+    if action == "chat_permissions":
+        if "denied" not in p:
+            raise ValueError("denied is required; an explicit empty object clears all default restrictions")
+        rights = p["denied"]
+        supported = {"send_messages", "send_media", "send_polls", "invite_users", "pin_messages", "change_info", "manage_topics"}
+        if not isinstance(rights, dict) or set(rights) - supported:
+            raise ValueError("denied must contain supported permission names mapped to booleans")
+        if any(type(value) is not bool for value in rights.values()):
+            raise ValueError("denied permission values must be booleans")
+        return {"denied": dict(rights)}
+    if action == "bot_profile_update":
+        fields = {k: str(p[k]) for k in ("name", "about", "description") if k in p}
+        limits = {"name": 64, "about": 120, "description": 512}
+        if not fields or any(len(v) > limits[k] for k, v in fields.items()):
+            raise ValueError("Supply bot name (64), about (120), or description (512 characters max)")
+        return fields
+    raise ValueError(f"No payload schema for {action}")
