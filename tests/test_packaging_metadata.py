@@ -2,6 +2,7 @@
 import tomllib
 from pathlib import Path
 
+from packaging.markers import default_environment
 from packaging.requirements import Requirement
 from packaging.version import Version
 
@@ -24,9 +25,24 @@ def test_core_and_optional_speech_dependencies():
     core = {Requirement(dep).name for dep in project["dependencies"]}
     assert "packaging" in core  # Runtime code imports it directly, not transitively.
     assert "faster-whisper" not in core
+
     assert "faster-whisper" in {
         Requirement(dep).name for dep in project["optional-dependencies"]["stt-whisper"]
     }
+
+
+def test_packaging_is_declared_on_every_supported_python():
+    """The HF image runs Debian system Python 3.13 with `uv sync --no-dev`. A packaging
+    requirement gated on 3.14+ leaves plugin discovery without the module, so no profile
+    adapter starts. The direct import must be covered on every supported interpreter."""
+    project = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    requirements = [Requirement(dep) for dep in project["dependencies"]
+                    if Requirement(dep).name == "packaging"]
+    assert requirements
+    base = default_environment()
+    for version in ("3.11", "3.12", "3.13", "3.14"):
+        env = {**base, "python_version": version, "python_full_version": f"{version}.0"}
+        assert any(req.marker is None or req.marker.evaluate(env) for req in requirements), version
 
 
 def test_starlette_server_pins_and_lock_exclude_cve_2026_48710():

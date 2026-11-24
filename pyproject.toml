@@ -77,7 +77,11 @@ dependencies = [
   # tools/lazy_deps.py treats every version constraint as satisfied, and
   # hermes_cli/main.py drops to naive requirement parsing. Pure-Python
   # py3-none-any wheel, no compiled extensions — safe to ship everywhere.
-  # Pinned to the version already resolved in uv.lock (no resolution churn).
+  # Pinned to the versions already resolved in uv.lock (no resolution churn):
+  # 3.14+ uses 26.3; 3.13 and older use 26.0. Without the 3.13 entry the HF
+  # image (Debian system Python 3.13, uv sync --no-dev) omits packaging and
+  # plugin discovery raises ModuleNotFoundError, so no profile adapter starts.
+  "packaging==26.0; python_version < '3.14'",
   "packaging==26.3; python_version >= '3.14'",
   # Markdown -> HTML conversion for rich message delivery (Matrix
   # `formatted_body`, and the `send_message` tool's HTML path). Now on the
